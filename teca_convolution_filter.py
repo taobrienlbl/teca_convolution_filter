@@ -314,7 +314,7 @@ class teca_convolution_filter(teca_python_algorithm):
         return up_req
 
     def execute(self, o_port, data_in, request_in):
-        """ Implements a rudimentary AR detector that thresholds at 250 kg/m/s and avoids the tropics. """
+        """ Implements a convolution-based temporal filter. """
 
         # get the number of timesteps available
         ntime = len(data_in)
