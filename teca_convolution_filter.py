@@ -118,6 +118,7 @@ class teca_convolution_filter(teca_python_algorithm):
     weights = None
     point_arrays = None
     verbose = 0
+    temporal_resolution = None
 
     def set_verbose(self, verbose):
         """ Flags whether to be verbose. """
@@ -143,6 +144,8 @@ class teca_convolution_filter(teca_python_algorithm):
 
     def get_point_arrays(self):
         """ Gets the list of arrays to filter. """
+        if self.point_arrays is None:
+            raise RuntimeError("Point arrays have not been set; use `set_point_arrays()`")
         return self.point_arrays
 
     def set_postfix(self, postfix):
@@ -181,15 +184,22 @@ class teca_convolution_filter(teca_python_algorithm):
         """ Returns the filter cutoff period (in units of days). """
         return self.filter_cutoff
 
+    def set_temporal_resolution(self, res):
+        """ Sets the temporal resolution of the dataset (in days). """
+        self.temporal_resolution = res
+
+    def get_temporal_resolution(self):
+        """ Gets the temporal resolution of the dataset (in days). """
+        if self.temporal_resolution is None:
+            raise RuntimeError("Temporal resolution is not set; use `set_temporal_resolution()`")
+        return self.temporal_resolution
+
     def report(self, o_port, reports_in):
         # add the variable we produce to the report
         rep = teca_metadata(reports_in[0])
 
-        # extract the temporal resolution of the data and convert it to days
-        delta_t_str = str(rep["attributes"]["time"]["delta_t"]).split()[1]
-        _tmpdate = dt.datetime.strptime(delta_t_str,"%H:%M:%S")
-        delta_t = dt.timedelta(hours=_tmpdate.hour, minutes=_tmpdate.minute, seconds=_tmpdate.second)
-        delta_t_days = delta_t.seconds/86400
+        # get the temporal resolution of the data
+        delta_t_days = self.get_temporal_resolution()
 
         # get the filter type
         weight_type = self.get_weight_type()
@@ -387,40 +397,3 @@ class teca_convolution_filter(teca_python_algorithm):
                 #del(output_arrays[var])
 
         return out_mesh
-
-if __name__ == "__main__":
-
-    regex = "/N/project/obrienta_startup/regcm_input_data/NNRP1/2021/air.*\.nc"
-    be_verbose = True
-
-
-    reader = teca_cf_reader.New()
-    reader.set_verbose(int(be_verbose))
-    reader.set_z_axis_variable("level")
-    reader.set_files_regex(regex)
-
-    filter = teca_convolution_filter.New()
-    filter.set_point_arrays("air")
-    filter.set_verbose(int(be_verbose))
-    filter.set_input_connection(reader.get_output_port())
-
-    # executive
-    exe = teca_index_executive.New()
-    exe.set_verbose(int(be_verbose))
-
-    # set up the writer
-    writer = teca_cf_writer.New()
-    writer.set_executive(exe)
-    writer.set_verbose(int(be_verbose))
-    writer.set_thread_pool_size(1)
-    writer.set_point_arrays(filter.get_point_array_names())
-    writer.set_input_connection(filter.get_output_port())
-    #writer.set_point_arrays(["air"])
-    #writer.set_input_connection(reader.get_output_port())
-    writer.set_file_name("test_%t%.nc")
-
-    # TODO: remove these lines
-    #writer.set_first_step(0)
-    #writer.set_last_step(120)
-
-    writer.update()
